@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -9,27 +9,29 @@ interface Props {
   disabled?: boolean
 }
 
-export default function DownloadButton({ docxBase64, candidateName, disabled }: Props) {
+/**
+ * Button that decodes a base64-encoded DOCX and triggers a browser download.
+ * Decoding is done entirely client-side — no API round-trip required.
+ */
+const DownloadButton = memo(function DownloadButton({ docxBase64, candidateName, disabled }: Props) {
   const [isDownloading, setIsDownloading] = useState(false)
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (isDownloading) return
     setIsDownloading(true)
 
     const filename = `${candidateName.replace(/\s+/g, '_')}_CV_Tailored.docx`
 
     try {
-      const response = await fetch('/api/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docxBase64, filename }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Download request failed')
+      const binaryString = atob(docxBase64)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
       }
 
-      const blob = await response.blob()
+      const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -54,7 +56,7 @@ export default function DownloadButton({ docxBase64, candidateName, disabled }: 
       onClick={handleDownload}
       disabled={disabled || isDownloading}
       className={`
-        w-full py-3 px-6 rounded-xl font-semibold text-white text-sm transition-all duration-200
+        w-full py-3 px-6 rounded-xl font-semibold text-white text-sm transition-all duration-200 min-h-[44px]
         ${disabled || isDownloading
           ? 'bg-gray-400 cursor-not-allowed'
           : 'bg-green-600 hover:bg-green-700 active:scale-[0.99] shadow-md hover:shadow-lg'
@@ -75,4 +77,6 @@ export default function DownloadButton({ docxBase64, candidateName, disabled }: 
       )}
     </button>
   )
-}
+})
+
+export default DownloadButton

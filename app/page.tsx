@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import DropzoneUpload from '../components/DropzoneUpload'
 import JobInput from '../components/JobInput'
 import ResultPreview from '../components/ResultPreview'
 import DownloadButton from '../components/DownloadButton'
+import LoadingProgress from '../components/LoadingProgress'
 import { RewriteResult } from '../types/cv'
+import { MIN_JOB_INPUT_WARNING_LENGTH } from '../lib/constants'
 
 export default function HomePage() {
   const [cvFile, setCvFile] = useState<File | null>(null)
@@ -16,6 +18,16 @@ export default function HomePage() {
   const [result, setResult] = useState<RewriteResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const handleFileAccepted = useCallback((file: File) => {
+    setCvFile(file)
+    setCvText('')
+  }, [])
+
+  const handleTextFallback = useCallback((text: string) => {
+    setCvText(text)
+    setCvFile(null)
+  }, [])
+
   const hasCv = cvFile !== null || cvText.trim().length > 0
   const hasJob = jobInput.trim().length > 0
   const canSubmit = hasCv && hasJob && !isLoading
@@ -23,7 +35,7 @@ export default function HomePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (jobInput.trim().length > 0 && jobInput.trim().length < 100 && !jobInput.startsWith('http')) {
+    if (jobInput.trim().length > 0 && jobInput.trim().length < MIN_JOB_INPUT_WARNING_LENGTH && !jobInput.startsWith('http')) {
       toast('Job description seems short. Make sure you paste the full description.', {
         icon: '⚠️',
       })
@@ -53,9 +65,11 @@ export default function HomePage() {
       setResult(data)
       toast.success('CV rewritten successfully!')
 
-      // Smooth scroll to results
+      // Smooth scroll to results and move keyboard focus
       setTimeout(() => {
-        document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })
+        const resultsEl = document.getElementById('results')
+        resultsEl?.scrollIntoView({ behavior: 'smooth' })
+        resultsEl?.focus()
       }, 100)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
@@ -77,6 +91,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Screen reader live region */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {isLoading && 'Processing your CV, please wait...'}
+        {result?.success && 'CV rewrite complete. Results are ready below.'}
+      </div>
       {/* Header */}
       <header className="bg-gradient-to-r from-[#0d1b2e] to-[#2165bf] text-white py-10 px-4 text-center">
         <h1 className="text-4xl font-bold tracking-tight">
@@ -95,14 +114,8 @@ export default function HomePage() {
             {/* Left: Inputs */}
             <div className="space-y-6">
               <DropzoneUpload
-                onFileAccepted={file => {
-                  setCvFile(file)
-                  setCvText('')
-                }}
-                onTextFallback={text => {
-                  setCvText(text)
-                  setCvFile(null)
-                }}
+                onFileAccepted={handleFileAccepted}
+                onTextFallback={handleTextFallback}
               />
               <JobInput value={jobInput} onChange={setJobInput} />
             </div>
@@ -147,18 +160,29 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Loading progress */}
+          {isLoading && <LoadingProgress />}
+
           {/* Submit button */}
           <div className="mt-8">
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                {error}
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex justify-between items-start gap-3">
+                <p className="text-sm text-red-700">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0"
+                  aria-label="Dismiss error"
+                >
+                  ×
+                </button>
               </div>
             )}
             <button
               type="submit"
               disabled={!canSubmit}
               className={`
-                w-full py-4 rounded-xl font-bold text-lg transition-all duration-200
+                w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 min-h-[44px]
                 ${canSubmit
                   ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:scale-[0.99]'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -184,7 +208,8 @@ export default function HomePage() {
         {result?.success && result.cv && (
           <div
             id="results"
-            className="mt-12 space-y-6 animate-fade-in"
+            tabIndex={-1}
+            className="mt-12 space-y-6 animate-fade-in outline-none"
           >
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-2xl font-bold text-gray-900">Your Tailored CV</h2>

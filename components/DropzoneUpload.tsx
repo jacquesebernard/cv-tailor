@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { useDropzone } from 'react-dropzone'
+import { MAX_FILE_SIZE } from '../lib/constants'
 
 interface Props {
   onFileAccepted: (file: File) => void
   onTextFallback: (text: string) => void
 }
 
-export default function DropzoneUpload({ onFileAccepted, onTextFallback }: Props) {
+const DropzoneUpload = memo(function DropzoneUpload({ onFileAccepted, onTextFallback }: Props) {
   const [acceptedFileName, setAcceptedFileName] = useState<string | null>(null)
   const [showTextarea, setShowTextarea] = useState(false)
   const [pastedText, setPastedText] = useState('')
@@ -33,7 +34,7 @@ export default function DropzoneUpload({ onFileAccepted, onTextFallback }: Props
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'text/plain': ['.txt'],
     },
-    maxSize: 5 * 1024 * 1024,
+    maxSize: MAX_FILE_SIZE,
     multiple: false,
   })
 
@@ -55,11 +56,15 @@ export default function DropzoneUpload({ onFileAccepted, onTextFallback }: Props
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-semibold text-gray-700">Your CV</label>
+      <label htmlFor="cv-upload" className="block text-sm font-semibold text-gray-700">Your CV</label>
 
       {!showTextarea ? (
         <div
           {...getRootProps()}
+          id="cv-upload"
+          role="button"
+          aria-label="Upload CV file — drag and drop or click to browse"
+          tabIndex={0}
           className={`
             border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
             ${isDragActive
@@ -108,10 +113,12 @@ export default function DropzoneUpload({ onFileAccepted, onTextFallback }: Props
       <button
         type="button"
         onClick={toggleTextarea}
-        className="text-xs text-blue-600 hover:text-blue-800 underline"
+        className="text-xs text-blue-600 hover:text-blue-800 underline min-h-[44px]"
       >
         {showTextarea ? 'Upload a file instead' : 'Or paste your CV text instead'}
       </button>
     </div>
   )
-}
+})
+
+export default DropzoneUpload
