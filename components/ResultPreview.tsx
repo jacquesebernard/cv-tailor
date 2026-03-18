@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { RewrittenCV } from '../types/cv'
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
 
 function ScoreRing({ score }: { score: number }) {
   const color =
-    score >= 80 ? 'text-green-600' : score >= 60 ? 'text-amber-500' : 'text-red-500'
+    score >= 80 ? 'text-green-600' : score >= 60 ? 'text-amber-600' : 'text-red-600'
   const ringColor =
     score >= 80 ? 'border-green-500' : score >= 60 ? 'border-amber-400' : 'border-red-400'
   const bgColor =
@@ -22,7 +23,7 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
-export default function ResultPreview({ cv }: Props) {
+const ResultPreview = memo(function ResultPreview({ cv }: Props) {
   return (
     <div className="space-y-6">
       {/* ATS Score */}
@@ -184,4 +185,6 @@ export default function ResultPreview({ cv }: Props) {
       </div>
     </div>
   )
-}
+})
+
+export default ResultPreview

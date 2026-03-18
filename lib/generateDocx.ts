@@ -21,6 +21,13 @@ function horizontalRule(): Paragraph {
   })
 }
 
+/**
+ * Generates an ATS-friendly DOCX buffer from a structured CV object.
+ * Uses standard fonts (Calibri), no tables/columns/graphics — safe for all ATS systems.
+ *
+ * @param cv - Structured, rewritten CV data
+ * @returns Buffer containing the generated .docx file
+ */
 export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
   const numberingConfig: INumberingOptions = {
     config: [

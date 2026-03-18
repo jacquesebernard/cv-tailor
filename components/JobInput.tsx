@@ -26,7 +26,7 @@ export default function JobInput({ value, onChange }: Props) {
         <button
           type="button"
           onClick={() => handleTabSwitch('paste')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
             activeTab === 'paste'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700'
@@ -37,7 +37,7 @@ export default function JobInput({ value, onChange }: Props) {
         <button
           type="button"
           onClick={() => handleTabSwitch('url')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
             activeTab === 'url'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-500 hover:text-gray-700'

@@ -3,6 +3,7 @@ import { extractCvText } from '../../../lib/extractCv'
 import { fetchJobPosting } from '../../../lib/fetchJobPosting'
 import { rewriteCvWithClaude } from '../../../lib/claudeRewrite'
 import { generateDocx } from '../../../lib/generateDocx'
+import { ValidationError } from '../../../lib/errors'
 
 export const maxDuration = 60
 
@@ -57,6 +58,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, cv: rewrittenCv, docxBase64 })
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
+    console.error('Unexpected error:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
     return NextResponse.json({ success: false, error: message }, { status: 500 })
   }

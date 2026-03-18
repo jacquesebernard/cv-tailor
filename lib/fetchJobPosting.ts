@@ -1,4 +1,11 @@
 import { parse } from 'node-html-parser'
+import { ValidationError } from './errors'
+import {
+  FETCH_TIMEOUT_MS,
+  MIN_JOB_CONTENT_LENGTH,
+  MIN_JOB_CONTENT_FALLBACK,
+  MAX_JOB_CONTENT_LENGTH,
+} from './constants'
 
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -6,6 +13,17 @@ const BROWSER_HEADERS = {
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
 }
+
+
+const BLOCKED_HOSTNAMES = [
+  /^localhost$/i,
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^\[?::1\]?$/,
+]
 
 function cleanText(raw: string): string {
   return raw
@@ -42,17 +60,17 @@ function extractFromHtml(html: string): string {
     try {
       for (const el of root.querySelectorAll(selector)) {
         const candidate = cleanText(el.text)
-        if (candidate.length > best.length && candidate.length > 300) {
+        if (candidate.length > best.length && candidate.length > MIN_JOB_CONTENT_LENGTH) {
           best = candidate
         }
       }
-      if (best.length > 500) break
+      if (best.length > MIN_JOB_CONTENT_FALLBACK) break
     } catch {
       // unsupported selector, continue
     }
   }
 
-  if (best.length < 300) {
+  if (best.length < MIN_JOB_CONTENT_LENGTH) {
     const body = root.querySelector('body')
     best = cleanText(body ? body.text : root.text)
   }
@@ -60,28 +78,56 @@ function extractFromHtml(html: string): string {
   return best
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(id)
+  }
+}
+
 async function tryJinaReader(url: string): Promise<string> {
   const jinaUrl = `https://r.jina.ai/${url}`
-  const response = await fetch(jinaUrl, { headers: BROWSER_HEADERS })
+  const response = await fetchWithTimeout(jinaUrl, { headers: BROWSER_HEADERS })
   if (!response.ok) {
     throw new Error(`Jina Reader failed: ${response.status}`)
   }
   const text = cleanText(await response.text())
-  return text.length > 8000 ? text.substring(0, 8000) : text
+  return text.length > MAX_JOB_CONTENT_LENGTH ? text.substring(0, MAX_JOB_CONTENT_LENGTH) : text
 }
 
+/**
+ * Fetches and extracts the job description text from a URL.
+ * Tries a direct HTML fetch first; falls back to Jina AI Reader for JS-rendered pages.
+ *
+ * @param url - Public URL of the job posting (http/https only)
+ * @returns Extracted job description text (max 8000 chars)
+ * @throws {ValidationError} If the URL is invalid, uses a disallowed scheme, or targets an internal network
+ * @throws {Error} If content cannot be extracted after both fetch strategies
+ */
 export async function fetchJobPosting(url: string): Promise<string> {
-  // Validate URL
+  // Validate URL format and scheme
+  let parsedUrl: URL
   try {
-    new URL(url)
+    parsedUrl = new URL(url)
   } catch {
-    throw new Error('Invalid URL provided.')
+    throw new ValidationError('Invalid URL provided.')
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new ValidationError('Only HTTP and HTTPS URLs are allowed.')
+  }
+
+  if (BLOCKED_HOSTNAMES.some(p => p.test(parsedUrl.hostname))) {
+    throw new ValidationError('Access to internal/private networks is not allowed.')
   }
 
   // 1. Try direct fetch first (fast path for plain-HTML job sites)
   let directText = ''
   try {
-    const response = await fetch(url, { headers: BROWSER_HEADERS })
+    const response = await fetchWithTimeout(url, { headers: BROWSER_HEADERS })
 
     if (response.status === 403 || response.status === 401) {
       // Hard block — skip straight to Jina
@@ -89,19 +135,20 @@ export async function fetchJobPosting(url: string): Promise<string> {
       const html = await response.text()
       directText = extractFromHtml(html)
     }
-  } catch {
-    // Network error — fall through to Jina
+  } catch (error) {
+    console.warn(`Direct fetch failed for ${url}:`, error instanceof Error ? error.message : error)
+    // fall through to Jina
   }
 
-  if (directText.length >= 300) {
-    return directText.length > 8000 ? directText.substring(0, 8000) : directText
+  if (directText.length >= MIN_JOB_CONTENT_LENGTH) {
+    return directText.length > MAX_JOB_CONTENT_LENGTH ? directText.substring(0, MAX_JOB_CONTENT_LENGTH) : directText
   }
 
   // 2. Jina AI Reader fallback — handles JS-rendered SPAs (Greenhouse, Lever, Workday, etc.)
   try {
     return await tryJinaReader(url)
-  } catch {
-    // Jina also failed
+  } catch (error) {
+    console.warn(`Jina Reader failed for ${url}:`, error instanceof Error ? error.message : error)
   }
 
   throw new Error(
