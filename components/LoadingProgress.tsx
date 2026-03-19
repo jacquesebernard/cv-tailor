@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 const STAGES = [
   { label: 'Extracting CV text...', duration: 2000 },
   { label: 'Fetching job description...', duration: 4000 },
-  { label: 'Rewriting with Claude AI...', duration: 16000 },
+  { label: 'Rewriting with AI...', duration: 16000 },
   { label: 'Generating ATS-optimized document...', duration: Infinity },
 ]
 
@@ -37,25 +37,42 @@ export default function LoadingProgress() {
   const stage = STAGES[stageIndex]
 
   return (
-    <div className="mt-6 flex flex-col items-center gap-4 py-8">
-      {/* Spinner */}
-      <svg className="animate-spin h-8 w-8 text-blue-600" viewBox="0 0 24 24" fill="none">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-      </svg>
+    <div className="mt-6 glass-card p-10 flex flex-col items-center gap-5 animate-scale-in">
+      {/* CSS ring spinner */}
+      <div className="w-10 h-10 rounded-full border-[3px] border-brand-200 border-t-brand-500 animate-spin" />
 
       {/* Stage label */}
-      <p className="text-sm font-medium text-gray-700 animate-pulse">{stage.label}</p>
+      <p className="text-sm font-semibold text-ink-secondary animate-pulse tracking-wide">{stage.label}</p>
 
-      {/* Step dots */}
-      <div className="flex gap-2">
+      {/* Connected step bar */}
+      <div
+        className="flex items-center"
+        role="progressbar"
+        aria-valuenow={stageIndex + 1}
+        aria-valuemin={1}
+        aria-valuemax={STAGES.length}
+        aria-label={`Step ${stageIndex + 1} of ${STAGES.length}: ${stage.label}`}
+      >
         {STAGES.map((s, i) => (
-          <div
-            key={s.label}
-            className={`h-2 w-2 rounded-full transition-colors duration-500 ${
-              i <= stageIndex ? 'bg-blue-600' : 'bg-gray-300'
-            }`}
-          />
+          <div key={s.label} className="flex items-center">
+            {/* Dot */}
+            {i === stageIndex ? (
+              <div className="w-3 h-3 rounded-full bg-brand-500 shadow-glow" />
+            ) : i < stageIndex ? (
+              <div className="w-2 h-2 rounded-full bg-brand-500" />
+            ) : (
+              <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(100,116,139,0.25)' }} />
+            )}
+            {/* Connector (not after last dot) */}
+            {i < STAGES.length - 1 && (
+              <div
+                className="h-px w-6"
+                style={{
+                  background: i < stageIndex ? 'var(--color-brand-400, #60a5fa)' : 'rgba(100,116,139,0.20)',
+                }}
+              />
+            )}
+          </div>
         ))}
       </div>
     </div>

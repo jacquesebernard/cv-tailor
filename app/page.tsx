@@ -1,16 +1,30 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import DropzoneUpload from '../components/DropzoneUpload'
 import JobInput from '../components/JobInput'
 import ResultPreview from '../components/ResultPreview'
 import DownloadButton from '../components/DownloadButton'
 import LoadingProgress from '../components/LoadingProgress'
+import AccessGate from '../components/AccessGate'
 import { RewriteResult } from '../types/cv'
 import { MIN_JOB_INPUT_WARNING_LENGTH } from '../lib/constants'
 
+const ACCESS_KEY = 'cv_tailor_access'
+
 export default function HomePage() {
+  const [isUnlocked, setIsUnlocked] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    setIsUnlocked(localStorage.getItem(ACCESS_KEY) === 'true')
+  }, [])
+
+  const handleUnlock = useCallback(() => {
+    localStorage.setItem(ACCESS_KEY, 'true')
+    setIsUnlocked(true)
+  }, [])
+
   const [cvFile, setCvFile] = useState<File | null>(null)
   const [cvText, setCvText] = useState<string>('')
   const [jobInput, setJobInput] = useState<string>('')
@@ -27,6 +41,10 @@ export default function HomePage() {
     setCvText(text)
     setCvFile(null)
   }, [])
+
+  // Gate: null = loading from storage, false = locked, true = unlocked
+  if (isUnlocked === null) return null
+  if (!isUnlocked) return <AccessGate onUnlock={handleUnlock} />
 
   const hasCv = cvFile !== null || cvText.trim().length > 0
   const hasJob = jobInput.trim().length > 0
@@ -90,20 +108,48 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-base">
+      {/* Mesh gradient background */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 60% at 10% 0%, rgba(33,101,191,0.10) 0%, transparent 70%), radial-gradient(ellipse 60% 50% at 90% 100%, rgba(33,101,191,0.08) 0%, transparent 70%)',
+        }}
+      />
+
       {/* Screen reader live region */}
       <div role="status" aria-live="polite" className="sr-only">
         {isLoading && 'Processing your CV, please wait...'}
         {result?.success && 'CV rewrite complete. Results are ready below.'}
       </div>
+
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#0d1b2e] to-[#2165bf] text-white py-10 px-4 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">
-          ✨ CV Tailor
+      <header
+        className="relative text-white py-12 px-4 text-center overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(8,15,26,0.96) 0%, rgba(13,27,46,0.92) 60%, rgba(26,79,153,0.85) 100%)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        {/* Subtle noise texture overlay */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+            backgroundSize: '128px 128px',
+          }}
+        />
+        <h1 className="relative text-4xl font-bold tracking-tight text-ink-inverse">
+          CV Tailor
         </h1>
-        <p className="mt-2 text-blue-200 text-lg">
+        <p className="relative mt-2 text-lg" style={{ color: 'rgba(180,210,255,0.85)' }}>
           Rewrite your CV to match any job description —{' '}
-          <span className="text-cyan-400 font-semibold">ATS optimized</span>
+          <span className="font-semibold" style={{ color: 'rgba(120,200,255,1)' }}>ATS optimized</span>
         </p>
       </header>
 
@@ -120,10 +166,10 @@ export default function HomePage() {
               <JobInput value={jobInput} onChange={setJobInput} />
             </div>
 
-            {/* Right: Info card */}
+            {/* Right: Info cards */}
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">How it works</h2>
+              <div className="glass-card p-6 animate-slide-in" style={{ animationDelay: '0ms' }}>
+                <h2 className="text-lg font-bold text-ink-primary mb-4">How it works</h2>
                 <ol className="space-y-3">
                   {[
                     { icon: '📄', title: 'Upload your CV', desc: 'PDF, DOCX, or TXT — or paste text directly' },
@@ -133,16 +179,16 @@ export default function HomePage() {
                     <li key={i} className="flex items-start gap-3">
                       <span className="text-2xl">{step.icon}</span>
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">{step.title}</p>
-                        <p className="text-xs text-gray-500">{step.desc}</p>
+                        <p className="text-sm font-semibold text-ink-primary">{step.title}</p>
+                        <p className="text-xs text-ink-tertiary">{step.desc}</p>
                       </div>
                     </li>
                   ))}
                 </ol>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-3">What you get</h2>
+              <div className="glass-card p-6 animate-slide-in" style={{ animationDelay: '80ms' }}>
+                <h2 className="text-lg font-bold text-ink-primary mb-3">What you get</h2>
                 <ul className="space-y-2">
                   {[
                     'Keyword matching from the job description',
@@ -150,8 +196,8 @@ export default function HomePage() {
                     'Strong action verbs & rewritten bullets',
                     'Clean, professional DOCX export',
                   ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                      <span className="text-green-500">✓</span>
+                    <li key={i} className="flex items-center gap-2 text-sm text-ink-secondary">
+                      <span className="text-success-600">✓</span>
                       {item}
                     </li>
                   ))}
@@ -166,12 +212,18 @@ export default function HomePage() {
           {/* Submit button */}
           <div className="mt-8">
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex justify-between items-start gap-3">
-                <p className="text-sm text-red-700">{error}</p>
+              <div
+                className="mb-4 p-4 rounded-2xl flex justify-between items-start gap-3"
+                style={{
+                  background: 'rgba(220,38,38,0.08)',
+                  border: '1px solid rgba(220,38,38,0.20)',
+                }}
+              >
+                <p className="text-sm text-danger-700">{error}</p>
                 <button
                   type="button"
                   onClick={() => setError(null)}
-                  className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0"
+                  className="text-danger-600 hover:text-danger-700 text-lg leading-none shrink-0 transition-colors duration-200"
                   aria-label="Dismiss error"
                 >
                   ×
@@ -182,12 +234,13 @@ export default function HomePage() {
               type="submit"
               disabled={!canSubmit}
               className={`
-                w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 min-h-[44px]
+                w-full py-4 rounded-2xl font-bold text-lg min-h-[44px] transition-all duration-350 ease-spring
                 ${canSubmit
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg active:scale-[0.99]'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-brand-500 hover:bg-brand-600 text-white shadow-card hover:shadow-float hover:-translate-y-0.5 active:translate-y-0'
+                  : 'text-ink-tertiary cursor-not-allowed'
                 }
               `}
+              style={!canSubmit ? { background: 'rgba(100,116,139,0.20)' } : undefined}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-3">
@@ -198,7 +251,7 @@ export default function HomePage() {
                   Analyzing & rewriting...
                 </span>
               ) : (
-                '✨ Tailor My CV'
+                'Tailor My CV'
               )}
             </button>
           </div>
@@ -212,11 +265,11 @@ export default function HomePage() {
             className="mt-12 space-y-6 animate-fade-in outline-none"
           >
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h2 className="text-2xl font-bold text-gray-900">Your Tailored CV</h2>
+              <h2 className="text-2xl font-bold text-ink-primary">Your Tailored CV</h2>
               <button
                 type="button"
                 onClick={handleReset}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
+                className="text-sm text-ink-tertiary hover:text-ink-secondary underline transition-colors duration-200"
               >
                 Rewrite Another
               </button>

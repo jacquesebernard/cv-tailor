@@ -4,52 +4,18 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
-  BorderStyle,
-  LevelFormat,
-  INumberingOptions,
-  HeadingLevel,
 } from 'docx'
 import { RewrittenCV } from '../types/cv'
-
-function horizontalRule(): Paragraph {
-  return new Paragraph({
-    spacing: { before: 100, after: 100 },
-    border: {
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: '2E4057', space: 1 },
-    },
-    children: [],
-  })
-}
 
 /**
  * Generates an ATS-friendly DOCX buffer from a structured CV object.
  * Uses standard fonts (Calibri), no tables/columns/graphics — safe for all ATS systems.
+ * Bullets use plain text indentation (no XML numbering references) for maximum ATS compatibility.
  *
  * @param cv - Structured, rewritten CV data
  * @returns Buffer containing the generated .docx file
  */
 export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
-  const numberingConfig: INumberingOptions = {
-    config: [
-      {
-        reference: 'cv-bullets',
-        levels: [
-          {
-            level: 0,
-            format: LevelFormat.BULLET,
-            text: '\u2022',
-            alignment: AlignmentType.LEFT,
-            style: {
-              paragraph: {
-                indent: { left: 360, hanging: 180 },
-              },
-            },
-          },
-        ],
-      },
-    ],
-  }
-
   const contactParts: string[] = []
   if (cv.contact.email) contactParts.push(cv.contact.email)
   if (cv.contact.phone) contactParts.push(cv.contact.phone)
@@ -81,6 +47,7 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
       children: [
         new TextRun({
           text: contactLine,
@@ -92,13 +59,10 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 3. Horizontal rule
-  children.push(horizontalRule())
-
-  // 4. PROFESSIONAL SUMMARY heading
+  // 3. PROFESSIONAL SUMMARY heading
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 360, after: 120 },
       children: [
         new TextRun({
           text: 'PROFESSIONAL SUMMARY',
@@ -111,7 +75,7 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 5. Summary text
+  // 4. Summary text
   children.push(
     new Paragraph({
       children: [
@@ -124,13 +88,10 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 6. Horizontal rule
-  children.push(horizontalRule())
-
-  // 7. EXPERIENCE heading
+  // 5. EXPERIENCE heading
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 360, after: 120 },
       children: [
         new TextRun({
           text: 'EXPERIENCE',
@@ -143,12 +104,12 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 8. Experience entries
+  // 6. Experience entries
   cv.experience.forEach((entry, idx) => {
-    // Job title
+    // Job title — plain bold paragraph (no HeadingLevel to avoid ATS misparse)
     children.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 240, after: 60 },
         children: [
           new TextRun({
             text: entry.title,
@@ -177,14 +138,14 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
       })
     )
 
-    // Bullets
+    // Bullets — plain text with indent (no <w:numPr> XML reference for ATS compatibility)
     entry.bullets.forEach(bullet => {
       children.push(
         new Paragraph({
-          numbering: { reference: 'cv-bullets', level: 0 },
+          indent: { left: 360, hanging: 180 },
           children: [
             new TextRun({
-              text: bullet,
+              text: '\u2022  ' + bullet,
               font: 'Calibri',
               size: 22,
             }),
@@ -199,13 +160,10 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     }
   })
 
-  // 9. Horizontal rule
-  children.push(horizontalRule())
-
-  // 10. SKILLS heading
+  // 7. SKILLS heading
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 360, after: 120 },
       children: [
         new TextRun({
           text: 'SKILLS',
@@ -218,7 +176,7 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 11. Skills paragraph
+  // 8. Skills paragraph
   children.push(
     new Paragraph({
       children: [
@@ -231,13 +189,10 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 12. Horizontal rule
-  children.push(horizontalRule())
-
-  // 13. EDUCATION heading
+  // 9. EDUCATION heading
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 360, after: 120 },
       children: [
         new TextRun({
           text: 'EDUCATION',
@@ -250,11 +205,11 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     })
   )
 
-  // 14. Education entries
+  // 10. Education entries
   cv.education.forEach(entry => {
     children.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 240, after: 60 },
         children: [
           new TextRun({
             text: entry.degree,
@@ -297,13 +252,11 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
     }
   })
 
-  // 15. Certifications
+  // 11. Certifications
   if (cv.certifications && cv.certifications.length > 0) {
-    children.push(horizontalRule())
-
     children.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_1,
+        spacing: { before: 360, after: 120 },
         children: [
           new TextRun({
             text: 'CERTIFICATIONS',
@@ -342,7 +295,6 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
   }
 
   const doc = new Document({
-    numbering: numberingConfig,
     styles: {
       default: {
         document: {
@@ -352,28 +304,6 @@ export async function generateDocx(cv: RewrittenCV): Promise<Buffer> {
           },
           paragraph: {
             spacing: { after: 100 },
-          },
-        },
-        heading1: {
-          run: {
-            font: 'Calibri',
-            size: 28,
-            bold: true,
-            color: '2E4057',
-          },
-          paragraph: {
-            spacing: { before: 240, after: 120 },
-          },
-        },
-        heading2: {
-          run: {
-            font: 'Calibri',
-            size: 24,
-            bold: true,
-            color: '2E4057',
-          },
-          paragraph: {
-            spacing: { before: 200, after: 80 },
           },
         },
       },

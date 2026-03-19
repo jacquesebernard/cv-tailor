@@ -18,33 +18,30 @@ export default function JobInput({ value, onChange }: Props) {
   }
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-semibold text-gray-700">Job Description</label>
+    <div className="space-y-3">
+      <label className="block text-sm font-semibold text-ink-secondary">Job Description</label>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200">
-        <button
-          type="button"
-          onClick={() => handleTabSwitch('paste')}
-          className={`px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
-            activeTab === 'paste'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Paste Text
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabSwitch('url')}
-          className={`px-4 py-2 text-sm font-medium transition-colors min-h-[44px] ${
-            activeTab === 'url'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Job URL
-        </button>
+      {/* Pill tab switcher */}
+      <div
+        className="flex p-1 rounded-2xl gap-1"
+        style={{ background: 'rgba(15,23,42,0.06)' }}
+      >
+        {(['paste', 'url'] as const).map(tab => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => handleTabSwitch(tab)}
+            className={`
+              flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-250 ease-spring min-h-[40px]
+              ${activeTab === tab
+                ? 'bg-white text-ink-primary shadow-soft'
+                : 'text-ink-tertiary hover:text-ink-secondary'
+              }
+            `}
+          >
+            {tab === 'paste' ? 'Paste Text' : 'Job URL'}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'paste' ? (
@@ -53,18 +50,18 @@ export default function JobInput({ value, onChange }: Props) {
           onChange={e => onChange(e.target.value)}
           rows={8}
           placeholder="Paste the full job description here..."
-          className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+          className="input-glass w-full p-3.5 text-sm resize-y"
         />
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <input
             type="url"
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder="https://jobs.example.com/position/..."
-            className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="input-glass w-full p-3.5 text-sm"
           />
-          <p className="text-xs text-gray-500">We&apos;ll extract the job description from the page</p>
+          <p className="text-xs text-ink-tertiary">We&apos;ll extract the job description from the page</p>
         </div>
       )}
     </div>
