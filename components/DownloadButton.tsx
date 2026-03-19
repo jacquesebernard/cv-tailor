@@ -50,19 +50,25 @@ const DownloadButton = memo(function DownloadButton({ docxBase64, candidateName,
     }
   }
 
+  const isDisabled = disabled || isDownloading
+
   return (
     <button
       type="button"
       onClick={handleDownload}
-      disabled={disabled || isDownloading}
+      disabled={isDisabled}
       className={`
-        w-full py-3 px-6 rounded-xl font-semibold text-white text-sm transition-all duration-200 min-h-[44px]
-        ${disabled || isDownloading
-          ? 'bg-gray-400 cursor-not-allowed'
-          : 'bg-green-600 hover:bg-green-700 active:scale-[0.99] shadow-md hover:shadow-lg'
+        w-full py-4 px-8 rounded-2xl font-bold text-base min-h-[44px] transition-all duration-350 ease-spring sm:w-auto
+        ${isDisabled
+          ? 'text-ink-tertiary cursor-not-allowed'
+          : 'text-white shadow-card hover:shadow-float hover:-translate-y-1 active:translate-y-0 active:shadow-card'
         }
-        sm:w-auto
       `}
+      style={
+        isDisabled
+          ? { background: 'rgba(100,116,139,0.20)' }
+          : { background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }
+      }
     >
       {isDownloading ? (
         <span className="flex items-center gap-2 justify-center">
@@ -73,7 +79,12 @@ const DownloadButton = memo(function DownloadButton({ docxBase64, candidateName,
           Preparing download...
         </span>
       ) : (
-        'Download ATS-Optimized CV (.docx)'
+        <span className="flex items-center gap-2 justify-center">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+          </svg>
+          Download ATS-Optimized CV (.docx)
+        </span>
       )}
     </button>
   )
