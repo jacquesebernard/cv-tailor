@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { RewrittenCV } from '../../types/cv'
-import { CLAUDE_MODEL, CLAUDE_MAX_TOKENS } from '../constants'
+import { CLAUDE_MAX_TOKENS, ClaudeModelId } from '../constants'
 import { AIProvider } from './provider'
+import { AIServiceQuotaError, AIServiceError } from '../errors'
 
 const SYSTEM_PROMPT = `You are an elite CV writer and ATS (Applicant Tracking System) optimization expert with 15 years of experience in recruitment and HR technology.
 Your task is to rewrite a candidate's CV to be a strong match for a specific job description while maintaining 100% factual accuracy. Never invent experience, qualifications, or skills the candidate doesn't have. Only reframe, reorder, and rephrase what already exists.
@@ -99,56 +100,110 @@ export class ClaudeProvider implements AIProvider {
    *
    * @param cvText - Plain text of the candidate's CV
    * @param jobDescription - Plain text of the target job description
+   * @param model - The Claude model to use for rewriting
    * @returns Parsed and validated RewrittenCV object
+   * @throws {AIServiceQuotaError} If the API key has insufficient credits
+   * @throws {AIServiceError} If the Claude API returns an error
    * @throws {Error} If the Claude response cannot be parsed or doesn't match the expected schema
    */
-  async rewriteCV(cvText: string, jobDescription: string): Promise<RewrittenCV> {
-    const message = await this.client.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: CLAUDE_MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `Here is the candidate's CV:\n\n${cvText}\n\n---\n\nHere is the job description:\n\n${jobDescription}`,
-        },
-      ],
-    })
-
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude')
-    }
-
-    let text = content.text.trim()
-
-    // Strip markdown code fences if present
-    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-
-    let parsed: unknown
+  async rewriteCV(cvText: string, jobDescription: string, model: ClaudeModelId): Promise<RewrittenCV> {
     try {
-      parsed = JSON.parse(text)
-    } catch {
-      // Try to extract JSON using regex
-      const match = text.match(/\{[\s\S]*\}/)
-      if (match) {
-        try {
-          parsed = JSON.parse(match[0])
-        } catch {
-          console.error(`Claude JSON parse failed. Response: ${text.substring(0, 500)}`)
+      const message = await this.client.messages.create({
+        model,
+        max_tokens: CLAUDE_MAX_TOKENS,
+        system: SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `Here is the candidate's CV:\n\n${cvText}\n\n---\n\nHere is the job description:\n\n${jobDescription}`,
+          },
+        ],
+      })
+
+      const content = message.content[0]
+      if (content.type !== 'text') {
+        throw new Error('Unexpected response type from Claude')
+      }
+
+      let text = content.text.trim()
+
+      // Strip markdown code fences if present
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        // Try to extract JSON using regex
+        const match = text.match(/\{[\s\S]*\}/)
+        if (match) {
+          try {
+            parsed = JSON.parse(match[0])
+          } catch {
+            console.error(`Claude JSON parse failed. Response: ${text.substring(0, 500)}`)
+            throw new Error('Unable to process AI response. Please try again.')
+          }
+        } else {
+          console.error(`No JSON found in Claude response. Response: ${text.substring(0, 500)}`)
           throw new Error('Unable to process AI response. Please try again.')
         }
-      } else {
-        console.error(`No JSON found in Claude response. Response: ${text.substring(0, 500)}`)
+      }
+
+      if (!isRewrittenCV(parsed)) {
+        console.error('Claude response does not match expected CV structure')
         throw new Error('Unable to process AI response. Please try again.')
       }
-    }
 
-    if (!isRewrittenCV(parsed)) {
-      console.error('Claude response does not match expected CV structure')
-      throw new Error('Unable to process AI response. Please try again.')
-    }
+      return parsed
+    } catch (error) {
+      // Handle Anthropic API errors
+      if (error instanceof Anthropic.APIError) {
+        const errorMessage = error.message || 'Unknown API error'
+        const errorBody = error.error as { type?: string } | undefined
+        const detailedError = JSON.stringify({
+          status: error.status,
+          message: errorMessage,
+          type: errorBody?.type || 'unknown',
+        })
 
-    return parsed
+        console.error('Anthropic API Error:', detailedError)
+
+        // Check for credit/quota errors
+        if (
+          error.status === 400 &&
+          errorMessage.toLowerCase().includes('credit balance')
+        ) {
+          throw new AIServiceQuotaError(
+            'The AI service is temporarily unavailable. Please contact support or try again later.',
+            detailedError
+          )
+        }
+
+        // Check for rate limit errors
+        if (error.status === 429) {
+          throw new AIServiceError(
+            'The AI service is currently experiencing high demand. Please try again in a few moments.',
+            detailedError
+          )
+        }
+
+        // Check for authentication errors
+        if (error.status === 401 || error.status === 403) {
+          throw new AIServiceError(
+            'The AI service is temporarily unavailable. Please contact support.',
+            detailedError
+          )
+        }
+
+        // Generic API error
+        throw new AIServiceError(
+          'The AI service encountered an error while processing your request. Please try again.',
+          detailedError
+        )
+      }
+
+      // Re-throw non-Anthropic errors
+      throw error
+    }
   }
 }

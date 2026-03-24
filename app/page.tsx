@@ -4,12 +4,13 @@ import { useState, useCallback, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import DropzoneUpload from '../components/DropzoneUpload'
 import JobInput from '../components/JobInput'
+import ModelSelector from '../components/ModelSelector'
 import ResultPreview from '../components/ResultPreview'
 import DownloadButton from '../components/DownloadButton'
 import LoadingProgress from '../components/LoadingProgress'
 import AccessGate from '../components/AccessGate'
 import { RewriteResult } from '../types/cv'
-import { MIN_JOB_INPUT_WARNING_LENGTH } from '../lib/constants'
+import { MIN_JOB_INPUT_WARNING_LENGTH, DEFAULT_CLAUDE_MODEL, ClaudeModelId } from '../lib/constants'
 
 const ACCESS_KEY = 'cv_tailor_access'
 
@@ -28,6 +29,7 @@ export default function HomePage() {
   const [cvFile, setCvFile] = useState<File | null>(null)
   const [cvText, setCvText] = useState<string>('')
   const [jobInput, setJobInput] = useState<string>('')
+  const [selectedModel, setSelectedModel] = useState<ClaudeModelId>(DEFAULT_CLAUDE_MODEL)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<RewriteResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +70,7 @@ export default function HomePage() {
       if (cvFile) formData.append('cvFile', cvFile)
       if (cvText.trim()) formData.append('cvText', cvText)
       formData.append('jobInput', jobInput)
+      formData.append('model', selectedModel)
 
       const response = await fetch('/api/rewrite-cv', {
         method: 'POST',
@@ -209,7 +212,7 @@ export default function HomePage() {
           {/* Loading progress */}
           {isLoading && <LoadingProgress />}
 
-          {/* Submit button */}
+          {/* Submit button and model selector */}
           <div className="mt-8">
             {error && (
               <div
@@ -230,30 +233,39 @@ export default function HomePage() {
                 </button>
               </div>
             )}
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className={`
-                w-full py-4 rounded-2xl font-bold text-lg min-h-[44px] transition-all duration-350 ease-spring
-                ${canSubmit
-                  ? 'bg-brand-500 hover:bg-brand-600 text-white shadow-card hover:shadow-float hover:-translate-y-0.5 active:translate-y-0'
-                  : 'text-ink-tertiary cursor-not-allowed'
-                }
-              `}
-              style={!canSubmit ? { background: 'rgba(100,116,139,0.20)' } : undefined}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Analyzing & rewriting...
-                </span>
-              ) : (
-                'Tailor My CV'
-              )}
-            </button>
+            <div className="flex gap-3">
+              <div className="w-48 shrink-0">
+                <ModelSelector
+                  value={selectedModel}
+                  onChange={setSelectedModel}
+                  disabled={isLoading}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className={`
+                  flex-1 py-4 rounded-2xl font-bold text-lg min-h-[44px] transition-all duration-350 ease-spring
+                  ${canSubmit
+                    ? 'bg-brand-500 hover:bg-brand-600 text-white shadow-card hover:shadow-float hover:-translate-y-0.5 active:translate-y-0'
+                    : 'text-ink-tertiary cursor-not-allowed'
+                  }
+                `}
+                style={!canSubmit ? { background: 'rgba(100,116,139,0.20)' } : undefined}
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-3">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Analyzing & rewriting...
+                  </span>
+                ) : (
+                  'Tailor My CV'
+                )}
+              </button>
+            </div>
           </div>
         </form>
 
